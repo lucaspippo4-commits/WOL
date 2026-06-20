@@ -1,6 +1,6 @@
 // views/founder.js — panel exclusivo del equipo WOL (rol founder).
 import { useState, useEffect } from 'preact/hooks';
-import { html, fmt, toast } from '../ui.js';
+import { html, fmt, toast, timeAr } from '../ui.js';
 import { Topbar, Spinner, nav } from '../components.js';
 import { StaffLogin } from './bartender.js';
 import { api, getStaffToken, setStaffToken } from '../api.js';
@@ -116,6 +116,58 @@ function BolicheStats({ boliche, onBack, right }) {
           <span>${i + 1}. ${p.nombre}</span><span><b>${p.unidades}</b> u · ${fmt(p.recaudado)}</span>
         </div>`)}
       </div>
+
+      <${ResetNoche} boliche=${boliche} onChanged=${load} />
     </div>
+  </div>`;
+}
+
+// ── Reiniciar noche (exclusivo de Founders) con confirmación reforzada + undo ──
+function ResetNoche({ boliche, onChanged }) {
+  const [backups, setBackups] = useState([]);
+  const [modal, setModal] = useState(false);
+  const [txt, setTxt] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function loadBk() { try { setBackups(await A('get', `/founder/boliches/${boliche.id}/backups`)); } catch {} }
+  useEffect(() => { loadBk(); }, []);
+
+  const reiniciar = async () => {
+    setBusy(true);
+    try {
+      const r = await A('post', `/founder/boliches/${boliche.id}/reset-noche`, { confirm: txt });
+      toast(`Noche reiniciada · respaldo de ${r.respaldado.pedidos} pedidos guardado`);
+      setModal(false); setTxt(''); loadBk(); onChanged && onChanged();
+    } catch (e) { toast(e.message || 'Error', 'err'); } finally { setBusy(false); }
+  };
+  const restaurar = async (bk) => {
+    if (!confirm(`¿Restaurar el respaldo del ${timeAr(bk.created_at)}? Reemplaza los datos actuales de la noche por los de ese respaldo (${bk.pedidos} pedidos).`)) return;
+    try { await A('post', `/founder/backups/${bk.id}/restore`, {}); toast('Datos restaurados ✓'); loadBk(); onChanged && onChanged(); }
+    catch (e) { toast(e.message || 'Error', 'err'); }
+  };
+
+  return html`<div class="card pad" style="border-color:var(--danger)">
+    <h3 style="color:var(--danger)">⚠️ Reiniciar noche</h3>
+    <p class="muted" style="font-size:.85rem">Borra pedidos, ventas, encuestas y puntos de esta noche (conserva carta, usuarios y configuración). Antes de borrar se guarda un respaldo recuperable por 48 h.</p>
+    <button class="btn danger block" onClick=${() => { setTxt(''); setModal(true); }}>🗑️ Reiniciar noche de ${boliche.nombre}</button>
+
+    ${backups.length > 0 && html`<div style="margin-top:14px">
+      <label class="field">Respaldos recientes (deshacer)</label>
+      ${backups.map(bk => html`<div key=${bk.id} class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)">
+        <div><b>${timeAr(bk.created_at)}</b> <span class="muted" style="font-size:.8rem">· ${bk.pedidos} pedidos · ${fmt(bk.ventas)}${bk.restored_at ? ' · restaurado' : ''}</span></div>
+        <button class="btn sm" onClick=${() => restaurar(bk)}>Restaurar</button>
+      </div>`)}
+    </div>`}
+
+    ${modal && html`<div class="modal-bg" onClick=${() => setModal(false)}><div class="modal" onClick=${e => e.stopPropagation()}>
+      <h2 style="color:var(--danger)">Reiniciar noche de ${boliche.nombre}</h2>
+      <p>Esto borra TODOS los pedidos y ventas de la noche actual. Se guardará un respaldo para poder deshacerlo.</p>
+      <label class="field">Para confirmar, escribí <b>CONFIRMAR</b></label>
+      <input value=${txt} onInput=${e => setTxt(e.target.value)} placeholder="CONFIRMAR" autocapitalize="characters" />
+      <div class="row" style="margin-top:14px">
+        <button class="btn danger grow" disabled=${busy || txt.trim().toUpperCase() !== 'CONFIRMAR'} onClick=${reiniciar}>${busy ? 'Reiniciando…' : 'Sí, reiniciar'}</button>
+        <button class="btn ghost" onClick=${() => setModal(false)}>Cancelar</button>
+      </div>
+    </div></div>`}
   </div>`;
 }

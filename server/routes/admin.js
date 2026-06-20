@@ -122,8 +122,12 @@ router.put('/bars/:id', (req, res) => {
 });
 
 // ── Staff (usuarios) ──────────────────────────────────────────────────────────
+// El admin/encargado SOLO gestiona bartender/encargado/admin. NUNCA founders:
+// no los ve, no los crea, no los edita ni elimina. Eso es exclusivo del panel WOL.
+const ROLES_ADMIN = ['bartender', 'encargado', 'admin'];
+
 router.get('/staff', (req, res) => {
-  const list = db.prepare('SELECT id,nombre,usuario,rol,activo FROM staff ORDER BY id').all();
+  const list = db.prepare("SELECT id,nombre,usuario,rol,activo FROM staff WHERE rol != 'founder' ORDER BY id").all();
   res.json(list.map(s => ({
     ...s, activo: !!s.activo,
     barras: db.prepare('SELECT bar_id FROM staff_bars WHERE staff_id = ?').all(s.id).map(r => r.bar_id)
@@ -132,6 +136,7 @@ router.get('/staff', (req, res) => {
 router.post('/staff', (req, res) => {
   const b = req.body || {};
   if (!b.usuario || !b.password) return res.status(400).json({ error: 'Faltan usuario/contraseña' });
+  if (!ROLES_ADMIN.includes(b.rol || 'bartender')) return res.status(403).json({ error: 'Rol no permitido' });
   if (db.prepare('SELECT 1 FROM staff WHERE usuario = ?').get(b.usuario))
     return res.status(409).json({ error: 'Usuario ya existe' });
   const r = db.prepare('INSERT INTO staff(nombre,usuario,pass_hash,rol) VALUES(?,?,?,?)')
@@ -144,6 +149,8 @@ router.put('/staff/:id', (req, res) => {
   const b = req.body || {};
   const s = db.prepare('SELECT * FROM staff WHERE id = ?').get(req.params.id);
   if (!s) return res.status(404).json({ error: 'No existe' });
+  if (s.rol === 'founder') return res.status(403).json({ error: 'No autorizado' });          // no tocar founders
+  if (b.rol && !ROLES_ADMIN.includes(b.rol)) return res.status(403).json({ error: 'Rol no permitido' }); // no promover a founder
   db.prepare('UPDATE staff SET nombre=?,rol=?,activo=? WHERE id=?')
     .run(b.nombre ?? s.nombre, b.rol ?? s.rol, (b.activo ?? !!s.activo) ? 1 : 0, req.params.id);
   if (b.password) db.prepare('UPDATE staff SET pass_hash = ? WHERE id = ?').run(hashPassword(b.password), req.params.id);
@@ -154,6 +161,8 @@ router.put('/staff/:id', (req, res) => {
   res.json({ ok: true });
 });
 router.delete('/staff/:id', (req, res) => {
+  const s = db.prepare('SELECT rol FROM staff WHERE id = ?').get(req.params.id);
+  if (s && s.rol === 'founder') return res.status(403).json({ error: 'No autorizado' });
   db.prepare('DELETE FROM staff WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
@@ -273,18 +282,8 @@ router.post('/orders/:id/revertir', (req, res) => {
   res.json({ ok: true, order: serializeOrder(db.prepare('SELECT * FROM orders WHERE id = ?').get(o.id)) });
 });
 
-// ── Reiniciar noche: borra pedidos/ventas/encuestas/puntos (conserva carta/staff/config) ──
-router.post('/reset-noche', (req, res) => {
-  db.exec(`
-    DELETE FROM order_items;
-    DELETE FROM orders;
-    DELETE FROM surveys;
-    DELETE FROM loyalty;
-    DELETE FROM loyalty_redemptions;
-    DELETE FROM sqlite_sequence WHERE name IN ('orders','order_items','surveys','loyalty_redemptions');
-  `);
-  res.json({ ok: true });
-});
+// NOTA: "Reiniciar noche" se movió al panel de Founders (routes/founder.js).
+// El admin/encargado del boliche YA NO tiene acceso a borrar datos de la noche.
 
 // ── Cross-sell (reglas producto → sugerido) ──────────────────────────────────
 router.get('/cross-sell', (req, res) => {

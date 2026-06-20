@@ -6,7 +6,7 @@ try { process.loadEnvFile(); } catch { /* sin .env (ej. Replit con Secrets) */ }
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, initSchema } from './db.js';
+import { db, initSchema, backupDatabase } from './db.js';
 import publicRoutes from './routes/public.js';
 import orderRoutes from './routes/orders.js';
 import staffRoutes from './routes/staff.js';
@@ -66,4 +66,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`\n🍸  WOL corriendo en  http://localhost:${PORT}`);
   console.log(`    Consumidor → /        Bartender → /barra        Admin → /admin\n`);
+  // Respaldo automático del archivo de la base: al arrancar y cada 30 minutos.
+  if (db.prepare('SELECT COUNT(*) AS n FROM products').get().n) backupDatabase();
+  setInterval(() => backupDatabase(), 30 * 60 * 1000);
 });

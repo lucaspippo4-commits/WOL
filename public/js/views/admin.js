@@ -447,15 +447,5 @@ function ConfigAdmin() {
       <p class="muted" style="font-size:.8rem;margin:8px 0 0">Pasada esta fecha/hora, el consumidor deja de ver la opción de pre-pedir. Dejalo vacío para no usar cierre automático.</p>
     </div>
     <button class="btn primary block lg" onClick=${save}>Guardar configuración</button>
-
-    <div class="card pad" style="border-color:var(--danger);margin-top:18px">
-      <h3 style="color:var(--danger)">Reiniciar noche</h3>
-      <p class="muted" style="font-size:.85rem">Borra todos los pedidos, ventas, encuestas y puntos acumulados. Conserva carta, usuarios y configuración. Útil antes de cada evento.</p>
-      <button class="btn danger block" onClick=${async () => {
-        if (!confirm('¿Seguro? Esto borra TODOS los pedidos y ventas de la noche actual. No se puede deshacer.')) return;
-        try { await A('post', '/admin/reset-noche', {}); toast('Noche reiniciada ✓ — dashboard en cero'); }
-        catch (e) { toast(e.message, 'err'); }
-      }}>🗑️ Reiniciar noche (borrar pedidos y ventas)</button>
-    </div>
   </div>`;
 }

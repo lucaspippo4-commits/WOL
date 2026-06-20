@@ -3,9 +3,11 @@
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import fs from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH = path.join(__dirname, '..', 'wol.db');
+const BACKUP_DIR = path.join(__dirname, '..', 'backups');
 
 export const db = new DatabaseSync(DB_PATH);
 db.exec('PRAGMA journal_mode = WAL;');
@@ -142,6 +144,17 @@ export function initSchema() {
     value TEXT NOT NULL
   );
 
+  -- Respaldo de noches reiniciadas: snapshot JSON para poder deshacer un reset.
+  CREATE TABLE IF NOT EXISTS night_backups (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    label TEXT DEFAULT '',
+    pedidos INTEGER NOT NULL DEFAULT 0,
+    ventas INTEGER NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL,
+    restored_at TEXT
+  );
+
   CREATE INDEX IF NOT EXISTS idx_orders_bar ON orders(bar_id);
   CREATE INDEX IF NOT EXISTS idx_orders_session ON orders(session_token);
   CREATE INDEX IF NOT EXISTS idx_items_order ON order_items(order_id);
@@ -153,6 +166,22 @@ export function initSchema() {
   if (!orderCols.includes('nota_admin')) {
     db.exec("ALTER TABLE orders ADD COLUMN nota_admin TEXT DEFAULT ''");
   }
+}
+
+// --- Backup automático del archivo de la base (copia consistente) -----------
+// VACUUM INTO crea una copia íntegra aunque haya escrituras (WAL). Se conservan
+// las últimas N copias en /backups. Protege ante borrados/corrupción accidental.
+export function backupDatabase(keep = 12) {
+  try {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = path.join(BACKUP_DIR, `wol-${ts}.db`);
+    db.exec(`VACUUM INTO '${file.replace(/'/g, "''")}'`);
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith('wol-') && f.endsWith('.db')).sort();
+    while (files.length > keep) fs.unlinkSync(path.join(BACKUP_DIR, files.shift()));
+    return file;
+  } catch (e) { console.error('backupDatabase:', e.message); return null; }
 }
 
 // --- Config (clave/valor en JSON) -------------------------------------------

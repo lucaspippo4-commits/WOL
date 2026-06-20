@@ -2,6 +2,7 @@ node_modules/
 wol.db
 wol.db-wal
 wol.db-shm
+backups/
 *.log
 .DS_Store
 

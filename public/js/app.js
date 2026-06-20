@@ -21,7 +21,8 @@ const ROUTES = [
   ['/barra', BartenderApp],
   ['/staff', BartenderApp],
   ['/admin', AdminApp],
-  ['/founders', FounderApp],
+  // Acceso oculto y separado de Founders (solo equipo WOL; no linkeado en ningún lado).
+  ['/wol-hq', FounderApp],
 ];
 
 function match(path) {

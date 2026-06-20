@@ -20,17 +20,23 @@ npm start         # levanta el servidor en http://localhost:3000
 > Si ya instalaste, alcanza con `npm start`. La base se **auto-carga** la primera vez.
 > Para resetear la base con los datos de ejemplo: `npm run seed`.
 
-**Una sola app, una sola URL.** El consumidor entra directo (sin login). El staff,
-el dueño y el equipo WOL acceden por un **acceso discreto**: el link "· acceso ·" del
-footer, o yendo directo a **`/acceso`**. El login redirige a cada uno según su rol.
+**Una sola app, una sola URL.** El consumidor entra directo (sin login). El personal
+del boliche entra por un **acceso discreto del boliche** (`/acceso`, o el link
+"· acceso ·" del footer) que ofrece Consumidor / Administración / Barra. El **equipo
+WOL (founders)** entra por un **acceso aparte y secreto, NO linkeado en ningún lado:
+la ruta `/wol-hq`** (ver abajo).
 
 | Interfaz | Cómo se llega | Acceso |
 |---|---|---|
-| **Consumidor** | http://localhost:3000/ | sin login |
-| **Acceso staff (oculto)** | http://localhost:3000/acceso | login |
-| **Bartender** | redirige a `/barra` tras login | rol bartender |
-| **Admin / Encargado** | redirige a `/admin` tras login | rol encargado/admin |
-| **Founders (equipo WOL)** | redirige a `/founders` tras login | rol founder |
+| **Consumidor** | `/` | sin login |
+| **Acceso staff del boliche** | `/acceso` (Consumidor / Admin / Barra) | login |
+| **Bartender** | `/acceso` → Barra → login | rol bartender |
+| **Admin / Encargado** | `/acceso` → Administración → login | rol encargado/admin |
+| **Founders (equipo WOL)** | **`/wol-hq`** (acceso secreto, separado) | rol founder |
+
+> 🔒 **Acceso de Founders:** `https://<tu-dominio>/wol-hq`. No está enlazado en ninguna
+> pantalla; solo lo conoce el equipo WOL. Lleva directo al login de Founder. Desde el
+> panel de Founder se controla la comisión, las métricas de WOL y el **"Reiniciar noche"**.
 
 ---
 
@@ -54,7 +60,23 @@ footer, o yendo directo a **`/acceso`**. El login redirige a cada uno según su 
 - **Consumidor**: carta, mapa, carrito, pago, sus pedidos, fidelización. No sabe que existen los demás paneles.
 - **Bartender**: cola de su(s) barra(s), escaneo, entregar.
 - **Admin / Encargado (dueño)**: dashboard de SUS ventas (ventas, ticket, barras, top productos), carta, ofertas, barras, staff, encuestas, config. **No ve la comisión de WOL ni puede cambiarla.**
-- **Founder (equipo WOL)**: panel exclusivo con la **comisión generada**, el **control del % de comisión**, y métricas de negocio (volumen, adopción, horarios pico, etc.). Nadie del boliche accede a esto.
+- **Founder (equipo WOL)**: panel exclusivo con la **comisión generada**, el **control del % de comisión**, métricas de negocio (volumen, adopción, horarios pico) y el **"Reiniciar noche"** (con confirmación reforzada y respaldo para deshacer). Nadie del boliche accede a esto — el admin/encargado **no** puede ver ni gestionar usuarios founder, ni reiniciar la noche.
+
+---
+
+## 💾 Base de datos y respaldos
+
+- **Motor:** SQLite (`node:sqlite`, archivo `wol.db`). En **Replit Reserved VM** el disco es
+  **persistente**, así que la base sobrevive reinicios y redeploys. (No se usa Cloud Run/Autoscale
+  para el deploy porque su disco es efímero y reiniciaría la base.)
+- **Respaldo automático del archivo:** al arrancar y cada 30 min se hace una copia íntegra
+  (`VACUUM INTO`) en `backups/` (se conservan las últimas 12). Protege ante borrado o corrupción.
+- **Respaldo para deshacer "Reiniciar noche":** antes de borrar, se guarda un snapshot completo
+  (pedidos, ítems, encuestas, puntos) en la tabla `night_backups`. Desde el panel de Founder se
+  puede **restaurar** ese respaldo (se conservan 48 h). El reset y el restore corren en transacción.
+- **Migración a Postgres:** no se hizo para esta etapa (un boliche, una noche). SQLite en Reserved VM
+  + estos respaldos cubren la persistencia con bajo riesgo. Cuando haya varios boliches conviene
+  migrar a la *Production database* (Postgres) de Replit por sus backups gestionados.
 
 ---
 

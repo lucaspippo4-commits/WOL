@@ -48,14 +48,14 @@ export function StaffLogin({ kind, onLogin, back }) {
   </div>`;
 }
 
-// ── Acceso oculto: selector de 4 vistas (Founder / Consumidor / Admin / Barra) ──
+// ── Acceso oculto del PERSONAL DEL BOLICHE: Consumidor / Admin / Barra ──────
+// (Founder NO está acá: tiene su propio acceso oculto separado, ver app.js → /wol-hq.)
 const ROLE_CFG = {
-  founder: { roles: ['founder'], dest: '/founders', label: 'Founder' },
   admin: { roles: ['encargado', 'admin'], dest: '/admin', label: 'Administración' },
   barra: { roles: ['bartender'], dest: '/barra', label: 'Barra / Staff' },
 };
 export function AccesoApp() {
-  const [mode, setMode] = useState(null); // null = selector; o 'founder'|'admin'|'barra'
+  const [mode, setMode] = useState(null); // null = selector; o 'admin'|'barra'
   if (!mode) {
     return html`<div class="splash" style="justify-content:flex-start;padding-top:50px">
       <div class="hush" style="width:130px"><img src="/assets/hush-logo.jpeg" /></div>
@@ -65,7 +65,6 @@ export function AccesoApp() {
         <button class="btn primary lg block" style="justify-content:flex-start;gap:12px" onClick=${() => nav('/')}>🍸 Consumidor</button>
         <button class="btn violet lg block" style="justify-content:flex-start;gap:12px" onClick=${() => setMode('barra')}>🧑‍🍳 Barra / Staff</button>
         <button class="btn lg block" style="justify-content:flex-start;gap:12px" onClick=${() => setMode('admin')}>📊 Administración / Encargado</button>
-        <button class="btn lg block" style="justify-content:flex-start;gap:12px" onClick=${() => setMode('founder')}>🪙 Founder</button>
       </div>
       <button class="btn ghost sm" style="margin-top:18px" onClick=${() => nav('/')}>← Volver a la app</button>
     </div>`;

@@ -55,6 +55,68 @@ router.get('/boliches/:id/stats', (req, res) => {
   });
 });
 
+// ── Reiniciar noche (SOLO founders) con snapshot para deshacer ───────────────
+const NIGHT_TABLES_DEL = ['order_items', 'orders', 'surveys', 'loyalty', 'loyalty_redemptions'];
+const NIGHT_TABLES_INS = ['orders', 'order_items', 'surveys', 'loyalty', 'loyalty_redemptions'];
+
+router.post('/boliches/:id/reset-noche', (req, res) => {
+  // Confirmación reforzada también en el servidor.
+  const confirm = (req.body?.confirm || '').trim().toUpperCase();
+  if (confirm !== 'CONFIRMAR' && confirm !== 'HUSH CLUB') {
+    return res.status(400).json({ error: 'Confirmación inválida' });
+  }
+  // 1) Snapshot de toda la data de la noche (para poder deshacer).
+  const snap = {};
+  for (const t of NIGHT_TABLES_INS) snap[t] = db.prepare(`SELECT * FROM ${t}`).all();
+  const pedidos = db.prepare("SELECT COUNT(*) AS n FROM orders WHERE estado NOT IN ('creado','cancelado','regalo_pendiente')").get().n;
+  const ventas = db.prepare("SELECT COALESCE(SUM(monto_total),0) AS t FROM orders WHERE estado NOT IN ('creado','cancelado','regalo_pendiente')").get().t;
+  const bk = db.prepare('INSERT INTO night_backups(label,pedidos,ventas,payload) VALUES(?,?,?,?)')
+    .run(`Reset ${req.staff.usuario}`, pedidos, ventas, JSON.stringify(snap));
+
+  // 2) Borrar la data de la noche (conserva carta, usuarios, config, ofertas).
+  db.exec('BEGIN');
+  try {
+    for (const t of NIGHT_TABLES_DEL) db.exec(`DELETE FROM ${t}`);
+    db.exec("DELETE FROM sqlite_sequence WHERE name IN ('orders','order_items','surveys','loyalty_redemptions')");
+    // Limpiar backups viejos (>48 h), conservando el recién creado.
+    db.prepare("DELETE FROM night_backups WHERE created_at < datetime('now','-2 days')").run();
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); return res.status(500).json({ error: 'Error al reiniciar', detalle: e.message }); }
+
+  res.json({ ok: true, backup_id: bk.lastInsertRowid, respaldado: { pedidos, ventas } });
+});
+
+// Listar respaldos disponibles para deshacer.
+router.get('/boliches/:id/backups', (req, res) => {
+  const rows = db.prepare(`SELECT id, created_at, label, pedidos, ventas, restored_at
+    FROM night_backups ORDER BY id DESC LIMIT 20`).all();
+  res.json(rows);
+});
+
+// Restaurar (deshacer un reset): vuelve a cargar la data del snapshot.
+router.post('/backups/:id/restore', (req, res) => {
+  const bk = db.prepare('SELECT * FROM night_backups WHERE id = ?').get(req.params.id);
+  if (!bk) return res.status(404).json({ error: 'Respaldo no encontrado' });
+  let snap;
+  try { snap = JSON.parse(bk.payload); } catch { return res.status(500).json({ error: 'Respaldo corrupto' }); }
+
+  db.exec('BEGIN');
+  try {
+    for (const t of NIGHT_TABLES_DEL) db.exec(`DELETE FROM ${t}`);
+    for (const t of NIGHT_TABLES_INS) {
+      for (const row of (snap[t] || [])) {
+        const cols = Object.keys(row);
+        const ph = cols.map(() => '?').join(',');
+        db.prepare(`INSERT INTO ${t} (${cols.map(c => `"${c}"`).join(',')}) VALUES (${ph})`).run(...cols.map(c => row[c]));
+      }
+    }
+    db.prepare("UPDATE night_backups SET restored_at = datetime('now') WHERE id = ?").run(bk.id);
+    db.exec('COMMIT');
+  } catch (e) { db.exec('ROLLBACK'); return res.status(500).json({ error: 'Error al restaurar', detalle: e.message }); }
+
+  res.json({ ok: true });
+});
+
 // Control del % de comisión — SOLO acá (founders).
 router.put('/comision', (req, res) => {
   let pct = parseFloat(req.body?.comision_wol);
