@@ -142,8 +142,8 @@ function Queue({ me, onLogout }) {
             onClick=${() => verPedido(o)}>
           <div class="row between">
             <div class="row" style="gap:10px">
-              ${o.numero_orden && html`<span class="num-badge">#${o.numero_orden}</span>`}
-              <b style="font-size:1.3rem;letter-spacing:.08em">${o.codigo_retiro}</b>
+              <span class="num-badge" style="min-width:48px;height:34px;font-size:1.05rem">#${o.numero_orden || '—'}</span>
+              <b style="font-size:1.1rem">Pedido</b>
             </div>
             <span class="pill-state s-${o.estado}">${estadoTxt(o.estado)}</span>
           </div>
@@ -161,12 +161,13 @@ function Queue({ me, onLogout }) {
             onClick=${() => verPedido(o)}>
           <div class="row between">
             <div class="row" style="gap:10px">
-              ${o.numero_orden && html`<span class="num-badge" style="background:var(--text-mute)">#${o.numero_orden}</span>`}
-              <b style="font-size:1.1rem;letter-spacing:.08em;text-decoration:line-through">${o.codigo_retiro}</b>
+              <span class="num-badge" style="background:var(--text-mute);min-width:48px;height:34px;font-size:1.05rem">#${o.numero_orden || '—'}</span>
+              <b style="font-size:1rem">Pedido</b>
             </div>
             <span class="pill-state s-entregado">${I.check('var(--ok)')} Entregado</span>
           </div>
-          <div class="muted" style="font-size:.8rem;margin-top:4px">${o.bar?.nombre} · entregado ${timeAr(o.delivered_at)} hs</div>
+          <div style="font-size:.85rem;margin-top:4px">${o.items.map(it => it.cantidad + '× ' + it.nombre).join(', ')}</div>
+          <div class="muted" style="font-size:.8rem;margin-top:2px">${o.bar?.nombre} · entregado ${timeAr(o.delivered_at)} hs</div>
         </button>`)}
       </div>`}
     </div>
@@ -200,17 +201,23 @@ function OrderDetailModal({ data, onClose, onChanged, setDetail }) {
     } finally { setBusy(false); }
   }
 
-  const confirmarCodigo = () => {
-    if (conf.trim().toUpperCase() === order.codigo_retiro.toUpperCase()) {
-      setDetail({ ...data, verificado: true }); toast('Código verificado ✓');
-    } else toast('El código no coincide con este pedido', 'err');
+  // Verificación contra el servidor: el código lo provee el cliente, no la pantalla.
+  const confirmarCodigo = async () => {
+    const c = conf.trim();
+    if (!c) return;
+    try {
+      const r = await api.get('/staff/resolve/' + encodeURIComponent(c), { auth: true });
+      if (r.order.id === order.id) { setDetail({ ...r, verificado: true }); toast('Código verificado ✓'); }
+      else toast('Ese código corresponde a otro pedido', 'err');
+    } catch (e) { toast('Código incorrecto o inexistente', 'err'); }
   };
 
   const entregado = order.estado === 'entregado';
 
   return html`<div class="modal-bg" onClick=${onClose}><div class="modal" onClick=${e => e.stopPropagation()}>
-    <div class="row between"><h2 style="margin:0">${order.numero_orden ? '#' + order.numero_orden + ' · ' : ''}${order.codigo_retiro}</h2><button class="btn ghost sm" onClick=${onClose}>✕</button></div>
+    <div class="row between"><h2 style="margin:0">Pedido ${order.numero_orden ? '#' + order.numero_orden : ''}</h2><button class="btn ghost sm" onClick=${onClose}>✕</button></div>
     <div class="muted" style="margin-bottom:10px">${order.bar?.nombre} · ${fmt(order.monto_total)}${order.es_regalo ? ' · 🎁 regalo' : ''}</div>
+    ${verificado && !entregado && html`<div class="card pad" style="border-color:var(--ok);margin-bottom:12px">✓ Código verificado: <b style="letter-spacing:.08em">${order.codigo_retiro}</b></div>`}
 
     ${!puede_operar && html`<div class="card pad" style="border-color:var(--warn);margin-bottom:12px">
       ⚠️ <b>${aviso || 'Pedido de otra barra'}</b><br/><span class="muted" style="font-size:.85rem">Solo lectura: no podés entregarlo desde tu barra.</span>
@@ -236,7 +243,7 @@ function OrderDetailModal({ data, onClose, onChanged, setDetail }) {
             <b>🔒 Verificá el código para entregar</b>
             <p class="muted" style="font-size:.83rem;margin:6px 0 10px">Escaneá el QR del cliente o ingresá su código de retiro para habilitar la entrega de este pedido.</p>
             <div class="row">
-              <input class="grow" style="text-transform:uppercase;font-weight:800" placeholder=${order.codigo_retiro.replace(/./g, '•')}
+              <input class="grow" style="text-transform:uppercase;font-weight:800" placeholder="Código del cliente"
                 value=${conf} onInput=${e => setConf(e.target.value.toUpperCase())} />
               <button class="btn primary" onClick=${confirmarCodigo}>Verificar</button>
             </div>

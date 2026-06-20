@@ -47,10 +47,13 @@ router.get('/queue', requireAnyStaff, (req, res) => {
     entregados = db.prepare(`SELECT * FROM orders WHERE estado = 'entregado'
                        AND bar_id IN (${ph}) ORDER BY delivered_at DESC LIMIT 50`).all(...bars);
   } else { rows = []; entregados = []; }
+  // Seguridad: el código de retiro y el qr_token NO se envían en la cola/historial.
+  // El bartender solo accede a ellos al verificar (escanear/tipear) vía /resolve.
+  const sinCodigo = (o) => { const s = serializeOrder(o); delete s.codigo_retiro; delete s.qr_token; return s; };
   res.json({
     barras: bars, todas: allBars,
-    pedidos: rows.map(serializeOrder),
-    entregados: entregados.map(serializeOrder)
+    pedidos: rows.map(sinCodigo),
+    entregados: entregados.map(sinCodigo)
   });
 });
 
