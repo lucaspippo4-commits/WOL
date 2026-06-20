@@ -7,6 +7,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, initSchema, backupDatabase } from './db.js';
+import { ensureFounders } from './auth.js';
 import publicRoutes from './routes/public.js';
 import orderRoutes from './routes/orders.js';
 import staffRoutes from './routes/staff.js';
@@ -31,6 +32,11 @@ if (!hayProductos) {
   console.log('\n⚙️  Base vacía: cargando datos iniciales (seed)…');
   await import('./seed.js');
 }
+
+// Reconciliar founders en CADA arranque (idempotente): elimina el viejo `founder`
+// de prueba y asegura lucas/wenceslao con la contraseña de las variables de entorno,
+// también sobre bases ya existentes. No toca ningún otro dato.
+ensureFounders();
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));

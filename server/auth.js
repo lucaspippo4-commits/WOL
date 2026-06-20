@@ -64,3 +64,25 @@ export function requireStaff(roles = null) {
 export const requireAdmin = requireStaff(['encargado', 'admin']);
 export const requireFounder = requireStaff(['founder']);
 export const requireAnyStaff = requireStaff(null);
+
+// --- Reconciliación de founders (idempotente, corre en cada arranque) --------
+// Garantiza que en CUALQUIER base (nueva o ya existente) los founders sean los
+// correctos: elimina el viejo usuario de prueba `founder` y crea/actualiza a
+// lucas y wenceslao con la contraseña de las variables de entorno. No toca
+// ningún otro dato (productos, otros usuarios staff, pedidos, config).
+export function ensureFounders() {
+  const FOUNDERS = [
+    { usuario: 'lucas', nombre: 'Lucas', pass: process.env.FOUNDER_LUCAS_PASS || 'dev-lucas' },
+    { usuario: 'wenceslao', nombre: 'Wenceslao', pass: process.env.FOUNDER_WENCES_PASS || 'dev-wences' },
+  ];
+  // Eliminar el usuario de prueba viejo si quedó de una versión anterior.
+  db.prepare("DELETE FROM staff WHERE usuario = 'founder'").run();
+
+  const upd = db.prepare("UPDATE staff SET nombre = ?, pass_hash = ?, rol = 'founder', activo = 1 WHERE usuario = ?");
+  const ins = db.prepare("INSERT INTO staff(nombre, usuario, pass_hash, rol) VALUES(?, ?, ?, 'founder')");
+  for (const f of FOUNDERS) {
+    const hash = hashPassword(f.pass);
+    const r = upd.run(f.nombre, hash, f.usuario);   // si ya existe, actualiza su contraseña al valor del entorno
+    if (r.changes === 0) ins.run(f.nombre, f.usuario, hash); // si no existe, lo crea
+  }
+}
