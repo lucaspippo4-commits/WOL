@@ -1,0 +1,26 @@
+# Configuración de Replit para WOL.
+# El "Run" instala dependencias (si faltan) y levanta el servidor.
+# Usa `node` directo (no el flag de npm): en Replit las credenciales vienen de
+# Secrets (process.env) y server.js las carga con loadEnvFile como respaldo.
+run = "npm install && node --no-warnings server/server.js"
+entrypoint = "server/server.js"
+modules = ["nodejs-22"]
+
+hidden = [".config", "package-lock.json", "node_modules", "wol.db", "wol.db-wal", "wol.db-shm"]
+
+[nix]
+channel = "stable-24_11"
+
+[deployment]
+run = ["sh", "-c", "npm install && node --no-warnings server/server.js"]
+# Reserved VM: disco PERSISTENTE (necesario para que wol.db / SQLite no se borre).
+# (Cloud Run / Autoscale tienen filesystem efímero y reiniciarían la base.)
+deploymentTarget = "vm"
+
+# El puerto interno 3000 se publica en el 80 (URL pública de Replit).
+[[ports]]
+localPort = 3000
+externalPort = 80
+
+[env]
+PORT = "3000"

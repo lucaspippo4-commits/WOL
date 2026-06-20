@@ -1,0 +1,24 @@
+{
+  "name": "wol",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WOL — carta digital + pedidos sin fila para Hush Club (MVP piloto)",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "seed": "node --env-file-if-exists=.env server/seed.js",
+    "start": "node --env-file-if-exists=.env --no-warnings server/server.js",
+    "dev": "node --env-file-if-exists=.env --no-warnings --watch server/server.js",
+    "setup": "npm install && npm run seed"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "htm": "^3.1.1",
+    "jsqr": "^1.4.0",
+    "mercadopago": "^3.1.0",
+    "preact": "^10.25.4",
+    "qrcode": "^1.5.4"
+  }
+}
