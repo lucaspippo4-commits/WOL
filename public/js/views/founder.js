@@ -117,8 +117,36 @@ function BolicheStats({ boliche, onBack, right }) {
         </div>`)}
       </div>
 
+      <${EncuestasFounder} boliche=${boliche} />
       <${ResetNoche} boliche=${boliche} onChanged=${load} />
     </div>
+  </div>`;
+}
+
+// ── Encuestas de fin de noche (solo Founders) ────────────────────────────────
+function EncuestasFounder({ boliche }) {
+  const [d, setD] = useState(null);
+  useEffect(() => { A('get', `/founder/boliches/${boliche.id}/surveys`).then(setD).catch(() => {}); }, []);
+  if (!d) return null;
+  return html`<div class="card pad">
+    <h3>⭐ Encuesta de fin de noche</h3>
+    <div class="grid2" style="margin:6px 0 10px">
+      <div class="kpi"><div class="k">Respuestas</div><div class="v">${d.total}</div></div>
+      <div class="kpi"><div class="k">Promedio</div><div class="v">${d.promedio} ⭐</div></div>
+    </div>
+    ${d.distribucion.slice().reverse().map(x => html`<div key=${x.estrellas} class="row" style="gap:8px;margin:4px 0">
+      <span style="width:34px">${x.estrellas}⭐</span>
+      <div class="grow" style="height:12px;background:var(--bg-2);border-radius:999px;overflow:hidden"><div style=${`height:100%;width:${d.total ? (x.n / d.total * 100) : 0}%;background:var(--neon-glow)`}></div></div>
+      <span style="width:24px;text-align:right">${x.n}</span>
+    </div>`)}
+    <div style="margin-top:10px"><b>NPS:</b> 👍 ${d.nps.si} · 🤔 ${d.nps.tal_vez} · 👎 ${d.nps.no}</div>
+    ${d.sugerencias.length > 0 && html`<div style="margin-top:10px"><b>Tragos sugeridos:</b>
+      ${d.sugerencias.map((s, i) => html`<div key=${i} class="muted" style="font-size:.85rem">• ${s}</div>`)}</div>`}
+    ${d.comentarios.length > 0 && html`<div style="margin-top:10px"><b>Comentarios:</b>
+      ${d.comentarios.map((c, i) => html`<div key=${i} style="padding:6px 0;border-bottom:1px solid var(--border)">
+        <div>${c.rating ? '⭐'.repeat(c.rating) : ''} <span class="muted" style="font-size:.78rem">${timeAr(c.fecha)}</span></div>${c.comentario}
+      </div>`)}</div>`}
+    ${d.total === 0 && html`<p class="muted" style="font-size:.85rem">Sin respuestas todavía.</p>`}
   </div>`;
 }
 

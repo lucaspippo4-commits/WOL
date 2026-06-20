@@ -55,7 +55,13 @@ const STAFF = [
   ['Encargada Noche', 'encargada', 'encargada123', 'encargado', []],
   ['Bautista (Barras 1 y 2)', 'barra12', 'barra123', 'bartender', ['barra_1', 'barra_2']],
   ['Camila (Barras 3 y 4)', 'barra34', 'barra123', 'bartender', ['barra_3', 'barra_4']],
-  ['Founders WOL', 'founder', 'founder123', 'founder', []], // equipo WOL — panel exclusivo
+  // Founders reales (equipo WOL) — acceso exclusivo por /wol-hq.
+  // Las contraseñas REALES NO van en el código: se leen de variables de entorno
+  // (FOUNDER_LUCAS_PASS / FOUNDER_WENCES_PASS), que se cargan desde .env (local, ignorado
+  // por git) o desde los Secrets de Replit (producción). El valor por defecto de acá es
+  // solo un placeholder débil para que el desarrollo local funcione si no se setea la variable.
+  ['Lucas', 'lucas', process.env.FOUNDER_LUCAS_PASS || 'dev-lucas', 'founder', []],
+  ['Wenceslao', 'wenceslao', process.env.FOUNDER_WENCES_PASS || 'dev-wences', 'founder', []],
 ];
 
 function run() {
@@ -101,7 +107,8 @@ function run() {
 
   console.log('✓ Seed completado.');
   console.log('  Productos:', PRODUCTS.length, '| Barras:', BARS.length, '| Staff:', STAFF.length);
-  console.log('  Credenciales demo → admin/admin123 · encargada/encargada123 · barra12/barra123 · barra34/barra123 · founder/founder123');
+  console.log('  Credenciales demo → admin/admin123 · encargada/encargada123 · barra12/barra123 · barra34/barra123');
+  console.log('  Founders (privado) → lucas / wenceslao (ver contraseñas con el equipo)');
 }
 
 run();

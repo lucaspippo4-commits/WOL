@@ -55,6 +55,21 @@ router.get('/boliches/:id/stats', (req, res) => {
   });
 });
 
+// ── Resultados de la encuesta de fin de noche (solo founders) ────────────────
+router.get('/boliches/:id/surveys', (req, res) => {
+  const rows = db.prepare('SELECT * FROM surveys ORDER BY id DESC').all();
+  const ratings = rows.filter(r => r.rating).map(r => r.rating);
+  const promedio = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
+  const dist = [1, 2, 3, 4, 5].map(n => ({ estrellas: n, n: ratings.filter(r => r === n).length }));
+  const nps = { si: 0, no: 0, tal_vez: 0 };
+  rows.forEach(r => { if (r.nps && nps[r.nps] != null) nps[r.nps]++; });
+  res.json({
+    total: rows.length, promedio: Math.round(promedio * 10) / 10, distribucion: dist, nps,
+    sugerencias: rows.filter(r => r.sugerencia_trago).map(r => r.sugerencia_trago),
+    comentarios: rows.filter(r => r.comentario).map(r => ({ comentario: r.comentario, rating: r.rating, fecha: r.created_at }))
+  });
+});
+
 // ── Reiniciar noche (SOLO founders) con snapshot para deshacer ───────────────
 const NIGHT_TABLES_DEL = ['order_items', 'orders', 'surveys', 'loyalty', 'loyalty_redemptions'];
 const NIGHT_TABLES_INS = ['orders', 'order_items', 'surveys', 'loyalty', 'loyalty_redemptions'];

@@ -26,7 +26,7 @@ function AdminShell({ me, onLogout }) {
   const [tab, setTab] = useState('dashboard');
   const tabs = [
     ['dashboard', '📊 Dashboard'], ['pedidos', '🔎 Pedidos'], ['carta', '🍸 Carta'], ['ofertas', '% Ofertas'],
-    ['barras', '🗺️ Barras'], ['staff', '👥 Staff'], ['encuestas', '⭐ Encuestas'], ['config', '⚙️ Config']
+    ['barras', '🗺️ Barras'], ['staff', '👥 Staff'], ['config', '⚙️ Config']
   ];
   const right = html`<button class="btn ghost sm" onClick=${onLogout}>⇄ Vista</button>`;
   return html`<div>
@@ -43,7 +43,6 @@ function AdminShell({ me, onLogout }) {
       ${tab === 'ofertas' && html`<${OffersAdmin} />`}
       ${tab === 'barras' && html`<${BarsAdmin} />`}
       ${tab === 'staff' && html`<${StaffAdmin} />`}
-      ${tab === 'encuestas' && html`<${SurveysAdmin} />`}
       ${tab === 'config' && html`<${ConfigAdmin} />`}
     </div>
   </div>`;
@@ -182,15 +181,17 @@ function CartaAdmin() {
     <button class="btn primary block" onClick=${() => setEdit({ nuevo: true, categoria: 'Tragos', icono: 'vaso', margen: 'medio', precio_base: 0, precio_min: 0, precio_max: 0, precio_actual: 0, disponible: true })}>+ Nuevo producto</button>
     ${products.map(p => html`<div key=${p.id} class="card pad">
       <div class="row between">
-        <div class="grow"><b>${p.nombre}</b> <span class="muted" style="font-size:.8rem">· ${p.categoria} · margen ${p.margen}</span></div>
+        <div class="grow"><b>${p.nombre}</b> <span class="muted" style="font-size:.8rem">· ${p.categoria}</span></div>
         <label class="row" style="gap:6px;font-size:.8rem">
           <input type="checkbox" style="width:auto;min-height:auto" checked=${p.disponible} onChange=${() => toggle(p)} /> ${p.disponible ? 'Disp.' : 'Agotado'}
         </label>
       </div>
       <div style="margin-top:10px">
-        <label class="field">Precio actual: <b style="color:var(--neon-glow)">${fmt(p.precio_actual)}</b> <span class="muted">(rango ${fmt(p.precio_min)}–${fmt(p.precio_max)})</span></label>
-        <input type="range" min=${p.precio_min} max=${p.precio_max} step="100" value=${p.precio_actual}
-          onChange=${e => precio(p, parseInt(e.target.value))} />
+        <label class="field">Precio actual</label>
+        <div class="row">
+          <input type="number" step="100" min="0" value=${p.precio_actual}
+            onChange=${e => precio(p, parseInt(e.target.value) || 0)} />
+        </div>
       </div>
       <div class="row" style="margin-top:10px">
         <button class="btn sm" onClick=${() => setEdit({ ...p })}>Editar</button>
@@ -206,7 +207,6 @@ function ProductEditor({ p, onClose, onSaved }) {
   const upd = (k, v) => setF(x => ({ ...x, [k]: v }));
   const cats = ['Tragos', 'Combos', 'Cervezas', 'Sin alcohol', 'Extras', 'Kiosco'];
   const iconos = ['vaso_500', 'vaso', 'lata', 'botella', 'hielera', 'kiosco'];
-  const margenes = ['bajo', 'medio', 'alto', 'altisimo'];
   const save = async () => {
     try {
       if (f.nuevo) await A('post', '/admin/products', f);
@@ -223,10 +223,7 @@ function ProductEditor({ p, onClose, onSaved }) {
         <div><label class="field">Categoría</label><select value=${f.categoria} onChange=${e => upd('categoria', e.target.value)}>${cats.map(c => html`<option value=${c} selected=${f.categoria === c}>${c}</option>`)}</select></div>
         <div><label class="field">Ícono</label><select value=${f.icono} onChange=${e => upd('icono', e.target.value)}>${iconos.map(c => html`<option value=${c} selected=${f.icono === c}>${c}</option>`)}</select></div>
       </div>
-      <div><label class="field">Margen</label><select value=${f.margen} onChange=${e => upd('margen', e.target.value)}>${margenes.map(c => html`<option value=${c} selected=${f.margen === c}>${c}</option>`)}</select></div>
       <div class="grid2">
-        <div><label class="field">Precio mín</label><input type="number" value=${f.precio_min} onInput=${e => upd('precio_min', +e.target.value)} /></div>
-        <div><label class="field">Precio máx</label><input type="number" value=${f.precio_max} onInput=${e => upd('precio_max', +e.target.value)} /></div>
         <div><label class="field">Precio base</label><input type="number" value=${f.precio_base} onInput=${e => upd('precio_base', +e.target.value)} /></div>
         <div><label class="field">Precio actual</label><input type="number" value=${f.precio_actual} onInput=${e => upd('precio_actual', +e.target.value)} /></div>
       </div>
@@ -364,39 +361,7 @@ function StaffEditor({ s, bars, onClose, onSaved }) {
 }
 
 // ── Encuestas ────────────────────────────────────────────────────────────────
-function SurveysAdmin() {
-  const [d, setD] = useState(null);
-  useEffect(() => { A('get', '/admin/surveys').then(setD).catch(() => {}); }, []);
-  if (!d) return html`<${Spinner} />`;
-  return html`<div class="stack">
-    <div class="grid2">
-      <div class="kpi"><div class="k">Respuestas</div><div class="v">${d.total}</div></div>
-      <div class="kpi"><div class="k">Promedio</div><div class="v">${d.promedio} ⭐</div></div>
-    </div>
-    <div class="card pad">
-      <h3>Distribución</h3>
-      ${d.distribucion.slice().reverse().map(x => html`<div key=${x.estrellas} class="row" style="gap:8px;margin:4px 0">
-        <span style="width:34px">${x.estrellas}⭐</span>
-        <div class="grow" style="height:12px;background:var(--bg-2);border-radius:999px;overflow:hidden"><div style=${`height:100%;width:${d.total ? (x.n / d.total * 100) : 0}%;background:var(--neon-glow)`}></div></div>
-        <span style="width:24px;text-align:right">${x.n}</span>
-      </div>`)}
-    </div>
-    <div class="card pad">
-      <h3>NPS — ¿Recomendarías WOL?</h3>
-      <div class="row between"><span>👍 Sí: <b>${d.nps.si}</b></span><span>🤔 Tal vez: <b>${d.nps.tal_vez}</b></span><span>👎 No: <b>${d.nps.no}</b></span></div>
-    </div>
-    <div class="card pad">
-      <h3>Tragos sugeridos</h3>
-      ${d.sugerencias.length === 0 ? html`<p class="muted">Sin sugerencias.</p>` : d.sugerencias.map((s, i) => html`<div key=${i} style="padding:4px 0">• ${s}</div>`)}
-    </div>
-    <div class="card pad">
-      <h3>Comentarios</h3>
-      ${d.comentarios.length === 0 ? html`<p class="muted">Sin comentarios.</p>` : d.comentarios.map((c, i) => html`<div key=${i} style="padding:8px 0;border-bottom:1px solid var(--border)">
-        <div>${c.rating ? '⭐'.repeat(c.rating) : ''} <span class="muted" style="font-size:.78rem">${timeAr(c.fecha)}</span></div>${c.comentario}
-      </div>`)}
-    </div>
-  </div>`;
-}
+// NOTA: la vista de Encuestas se movió al panel de Founders (views/founder.js).
 
 // ── Config ───────────────────────────────────────────────────────────────────
 function ConfigAdmin() {
@@ -419,14 +384,9 @@ function ConfigAdmin() {
       <input value=${c.loyalty_recompensa_texto} onInput=${e => upd('loyalty_recompensa_texto', e.target.value)} />
     </div>
     <div class="card pad">
-      <h3>Franja de la noche</h3>
-      <p class="muted" style="font-size:.82rem">Forzá la franja para demostrar las recomendaciones por momento sin esperar a la madrugada.</p>
-      <div class="row">${[['auto', 'Automática'], ['temprano', 'Temprano'], ['tarde', 'Tarde (post 1am)']].map(([v, t]) =>
-        html`<button key=${v} class="chip ${c.time_slot === v ? 'active' : ''}" onClick=${() => upd('time_slot', v)}>${t}</button>`)}</div>
-    </div>
-    <div class="card pad">
       <h3>Reglas de recomendación</h3>
-      ${[['margen', 'Por margen'], ['momento', 'Por momento de la noche'], ['crosssell', 'Cross-sell (carrito)'], ['ranking', 'Ranking en vivo'], ['stock', 'Ocultar agotados']].map(([k, t]) =>
+      <p class="muted" style="font-size:.82rem">Qué usa el sistema para sugerir productos. La franja de la noche se determina sola según la hora.</p>
+      ${[['momento', 'Por momento de la noche'], ['crosssell', 'Cross-sell (carrito)'], ['ranking', 'Ranking en vivo'], ['stock', 'Ocultar agotados']].map(([k, t]) =>
         html`<label key=${k} class="row between" style="padding:8px 0;border-bottom:1px solid var(--border)">
           <span>${t}</span><input type="checkbox" style="width:auto;min-height:auto" checked=${c.reglas?.[k] !== false} onChange=${e => updReg(k, e.target.checked)} />
         </label>`)}
@@ -435,16 +395,6 @@ function ConfigAdmin() {
       <h3>Ocupación</h3>
       <label class="field">Ventana de cálculo (minutos)</label>
       <input type="number" value=${c.occupancy_window_min} onInput=${e => upd('occupancy_window_min', +e.target.value)} />
-    </div>
-    <div class="card pad">
-      <h3>Pre-compras (pedidos para más tarde)</h3>
-      <label class="row between" style="padding:8px 0">
-        <span>Pre-compras habilitadas</span>
-        <input type="checkbox" style="width:auto;min-height:auto" checked=${c.precompra_habilitada !== false} onChange=${e => upd('precompra_habilitada', e.target.checked)} />
-      </label>
-      <label class="field" style="margin-top:6px">Cierre automático (fecha y hora)</label>
-      <input type="datetime-local" value=${c.precompra_cierre_dt || ''} onInput=${e => upd('precompra_cierre_dt', e.target.value || null)} />
-      <p class="muted" style="font-size:.8rem;margin:8px 0 0">Pasada esta fecha/hora, el consumidor deja de ver la opción de pre-pedir. Dejalo vacío para no usar cierre automático.</p>
     </div>
     <button class="btn primary block lg" onClick=${save}>Guardar configuración</button>
   </div>`;

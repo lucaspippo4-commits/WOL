@@ -73,21 +73,16 @@ export function buildRecommendations(cartProductIds = []) {
     out.mas_pedidos = liveRanking(5);
   }
 
-  // Regla 1 + 2 — por margen y por momento de la noche
-  if (reglas.margen !== false || reglas.momento !== false) {
+  // Regla — por momento de la noche (la franja se determina automáticamente por la
+  // hora real del sistema). La regla "por margen" se quitó: no hay dato de costo/margen
+  // real cargado en el sistema, así que no se puede calcular de forma confiable.
+  if (reglas.momento !== false) {
     const franja = franjaActual(getConfig('time_slot'));
     let scored = products.map(p => {
       let score = 0;
-      if (reglas.margen !== false) {
-        if (p.margen === 'altisimo') score += 4;
-        else if (p.margen === 'alto') score += 3;
-        else if (p.margen === 'medio') score += 1;
-      }
-      if (reglas.momento !== false) {
-        // Temprano: combos/botellas. Tarde: tragos individuales, agua, isotónicas.
-        if (franja === 'temprano' && (p.es_combo || p.categoria === 'Cervezas')) score += 2;
-        if (franja === 'tarde' && (p.categoria === 'Tragos' || p.categoria === 'Sin alcohol')) score += 2;
-      }
+      // Temprano: combos/botellas. Tarde: tragos individuales, agua, isotónicas.
+      if (franja === 'temprano' && (p.es_combo || p.categoria === 'Cervezas')) score += 2;
+      if (franja === 'tarde' && (p.categoria === 'Tragos' || p.categoria === 'Sin alcohol')) score += 2;
       return { p, score };
     });
     scored.sort((a, b) => b.score - a.score);

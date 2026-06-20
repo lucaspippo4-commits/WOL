@@ -48,10 +48,12 @@ la ruta `/wol-hq`** (ver abajo).
 | `encargada` | `encargada123` | encargado | todas |
 | `barra12` | `barra123` | bartender | Barra 1 (VIP) y Barra 2 |
 | `barra34` | `barra123` | bartender | Barra 3 y Barra 4 (Patio) |
-| `founder` | `founder123` | **founder** (solo equipo WOL) | — |
+| `lucas` / `wenceslao` | _(privadas, fuera del repo)_ | **founder** (equipo WOL) | — |
 
+> Los **founders** (lucas / wenceslao) entran solo por `/wol-hq`. Sus contraseñas no se
+> publican acá; se configuran con `FOUNDER_LUCAS_PASS` / `FOUNDER_WENCES_PASS` (.env / Secrets).
 > El **rol** de cada usuario está en la base de datos: el login los manda a su panel.
-> El dueño/admin crea y gestiona los usuarios de barra desde su panel.
+> El dueño/admin crea y gestiona usuarios de barra desde su panel, **nunca founders**.
 
 ---
 
@@ -59,8 +61,8 @@ la ruta `/wol-hq`** (ver abajo).
 
 - **Consumidor**: carta, mapa, carrito, pago, sus pedidos, fidelización. No sabe que existen los demás paneles.
 - **Bartender**: cola de su(s) barra(s), escaneo, entregar.
-- **Admin / Encargado (dueño)**: dashboard de SUS ventas (ventas, ticket, barras, top productos), carta, ofertas, barras, staff, encuestas, config. **No ve la comisión de WOL ni puede cambiarla.**
-- **Founder (equipo WOL)**: panel exclusivo con la **comisión generada**, el **control del % de comisión**, métricas de negocio (volumen, adopción, horarios pico) y el **"Reiniciar noche"** (con confirmación reforzada y respaldo para deshacer). Nadie del boliche accede a esto — el admin/encargado **no** puede ver ni gestionar usuarios founder, ni reiniciar la noche.
+- **Admin / Encargado (dueño)**: dashboard de SUS ventas (ventas, ticket, barras, top productos), búsqueda de pedidos, carta (precio editable directo), ofertas, barras, staff (sin founders), config. **No ve la comisión de WOL, ni las encuestas, ni puede reiniciar la noche.**
+- **Founder (equipo WOL)**: panel exclusivo (`/wol-hq`) con la **comisión generada**, el **control del % de comisión**, métricas de negocio (volumen, adopción, horarios pico), las **encuestas de fin de noche**, y el **"Reiniciar noche"** (confirmación reforzada + respaldo para deshacer). Nadie del boliche accede a esto — el admin/encargado **no** ve la comisión, ni las encuestas, ni gestiona founders, ni reinicia la noche.
 
 ---
 
@@ -170,10 +172,11 @@ split) en el futuro, sin activarlo ahora. La comisión generada se calcula y se 
   visible para consumidor y bartender; la cola es **FIFO** (el que pagó primero, primero).
 - **QR/códigos únicos** (verificados contra la base) y **no reutilizables**: una vez
   entregado, escanearlo de nuevo avisa "ya fue entregado".
-- **Cierre de pre-compras**: el admin puede cerrar la venta anticipada (toggle manual
-  o fecha/hora de cierre automático); el consumidor deja de ver la opción "para más tarde".
-- **Reiniciar noche**: botón en Admin → Config que borra pedidos, ventas, encuestas y
-  puntos (conserva carta, usuarios y configuración) para arrancar limpio antes de cada evento.
+- **Compra anticipada**: comprar días antes es el flujo normal de compra; el QR/código
+  queda válido hasta que se entregue (sin expiración). El cierre de la venta anticipada se
+  maneja cambiando los precios manualmente desde la carta (no hay un modo pre-pedido separado).
+- **Reiniciar noche**: exclusivo del **panel de Founders** (`/wol-hq`), con confirmación
+  reforzada y respaldo restaurable. El admin/encargado del boliche no tiene esta función.
 
 ---
 

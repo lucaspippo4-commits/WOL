@@ -31,10 +31,9 @@ router.put('/products/:id', (req, res) => {
   const b = req.body || {};
   const p = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'No existe' });
-  // Si viene precio_actual, acotar entre min y max.
-  let precioActual = b.precio_actual ?? p.precio_actual;
+  // El precio se edita libre (min/max quedan en la base pero NO se aplican en esta etapa).
+  let precioActual = Math.max(0, b.precio_actual ?? p.precio_actual);
   const min = b.precio_min ?? p.precio_min, max = b.precio_max ?? p.precio_max;
-  precioActual = Math.min(max, Math.max(min, precioActual));
   db.prepare(`UPDATE products SET nombre=?,descripcion=?,categoria=?,precio_base=?,precio_min=?,precio_max=?,
     precio_actual=?,icono=?,margen=?,disponible=?,es_combo=?,productos_incluidos=?,permite_comentario=?,
     comentario_placeholder=?,imagen_url=?,imagen_botella_url=? WHERE id=?`).run(
@@ -54,7 +53,7 @@ router.put('/products/:id', (req, res) => {
 router.patch('/products/:id/precio', (req, res) => {
   const p = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'No existe' });
-  const val = Math.min(p.precio_max, Math.max(p.precio_min, parseInt(req.body.precio_actual)));
+  const val = Math.max(0, parseInt(req.body.precio_actual) || 0); // edición libre, sin clamp min/max
   db.prepare('UPDATE products SET precio_actual = ? WHERE id = ?').run(val, p.id);
   res.json(productById(p.id));
 });
@@ -197,22 +196,10 @@ router.get('/dashboard', (req, res) => {
   });
 });
 
-// ── Resultados de encuesta ────────────────────────────────────────────────────
-router.get('/surveys', (req, res) => {
-  const rows = db.prepare('SELECT * FROM surveys ORDER BY id DESC').all();
-  const ratings = rows.filter(r => r.rating).map(r => r.rating);
-  const promedio = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
-  const dist = [1, 2, 3, 4, 5].map(n => ({ estrellas: n, n: ratings.filter(r => r === n).length }));
-  const nps = { si: 0, no: 0, tal_vez: 0 };
-  rows.forEach(r => { if (r.nps && nps[r.nps] != null) nps[r.nps]++; });
-  res.json({
-    total: rows.length, promedio: Math.round(promedio * 10) / 10, distribucion: dist, nps,
-    sugerencias: rows.filter(r => r.sugerencia_trago).map(r => r.sugerencia_trago),
-    comentarios: rows.filter(r => r.comentario).map(r => ({ comentario: r.comentario, rating: r.rating, fecha: r.created_at }))
-  });
-});
+// NOTA: los resultados de encuesta se movieron al panel de Founders (routes/founder.js).
+// El admin/encargado ya NO puede verlos.
 
-// ── Configuración (comisión, fidelización, franja, reglas) ───────────────────
+// ── Configuración (fidelización, reglas) ─────────────────────────────────────
 // El admin no ve ni edita la comisión de WOL (vive solo en el panel de founders).
 function adminConfigView() {
   const { comision_wol, ...rest } = getAllConfig();

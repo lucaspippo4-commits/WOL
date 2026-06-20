@@ -317,7 +317,7 @@ export function Cart() {
         session: sessionToken(),
         items: cart.map(i => ({ product_id: i.product_id, cantidad: i.cantidad, comentario: i.comentario })),
         bar_id: esRegalo ? null : sel,
-        tipo_pedido: (!esRegalo && cfg.precompra_abierta) ? tipo : 'normal',
+        tipo_pedido: 'normal',
         cupon: (!esRegalo && cuponValido) ? cupon : null,
         es_regalo: esRegalo,
         regalo_mensaje: esRegalo ? regaloMsg : ''
@@ -393,15 +393,6 @@ export function Cart() {
             ${sel === b.id ? I.check('var(--ok)') : ''}
           </button>`;
         })}</div>
-      </div>`}
-
-      ${!esRegalo && cfg.precompra_abierta && html`<div class="card pad">
-        <label class="field">¿Cuándo lo querés?</label>
-        <div class="row">
-          <button class="chip ${tipo === 'normal' ? 'active' : ''}" onClick=${() => setTipo('normal')}>🍸 Prepararlo ya</button>
-          <button class="chip ${tipo === 'pre-pedido' ? 'active' : ''}" onClick=${() => setTipo('pre-pedido')}>⏰ Para más tarde</button>
-        </div>
-        ${tipo === 'pre-pedido' && html`<p class="muted" style="font-size:.82rem;margin:10px 0 0">Pagás ahora y queda guardado. Lo activás cuando quieras retirarlo (no entra a la cola hasta entonces).</p>`}
       </div>`}
 
       ${!esRegalo && html`<div class="card pad">
