@@ -38,6 +38,11 @@ if (DEMO) {
   demoRouter = demo.default;
   demoAuthInject = demo.demoAuthInject;
 } else {
+  // Producción (modo real): exigir TODOS los secretos críticos de seguridad antes
+  // de servir nada. Con el repo público, ningún fallback débil puede quedar activo:
+  // si falta cualquiera, la app NO arranca (nada de valores por defecto adivinables).
+  assertProdSecrets();
+
   // Auto-seed la primera vez (útil en Replit: arranca con un solo "Run").
   // La base SQLite (wol.db) es persistente en disco: no se re-seedea en cada reinicio.
   const hayProductos = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
@@ -50,6 +55,32 @@ if (DEMO) {
   // de prueba y asegura lucas/wenceslao con la contraseña de las variables de entorno,
   // también sobre bases ya existentes. No toca ningún otro dato.
   ensureFounders();
+}
+
+// Verifica que las variables críticas de seguridad estén presentes en modo real.
+// Cada una, si falta, habilita un ataque concreto sobre un deployment público:
+//   · Sin secreto de firma → se pueden FALSIFICAR tokens de staff/admin/founder.
+//   · Sin contraseñas de founders → el login de founder queda adivinable.
+//   · Sin MP_ACCESS_TOKEN → el endpoint /pay-sim queda abierto (pedidos gratis).
+//   · Sin MP_WEBHOOK_SECRET → el webhook no valida la firma x-signature.
+function assertProdSecrets() {
+  const env = (n) => (process.env[n] || '').trim();
+  const checks = [
+    ['SESSION_SECRET', () => env('SESSION_SECRET') || env('WOL_SECRET'),
+      'firma de los tokens de sesión de staff (acepta también WOL_SECRET)'],
+    ['FOUNDER_LUCAS_PASS', () => env('FOUNDER_LUCAS_PASS'), 'contraseña del founder Lucas'],
+    ['FOUNDER_WENCES_PASS', () => env('FOUNDER_WENCES_PASS'), 'contraseña del founder Wenceslao'],
+    ['MP_ACCESS_TOKEN', () => env('MP_ACCESS_TOKEN'), 'access token de Mercado Pago (sin él, /pay-sim quedaría abierto)'],
+    ['MP_WEBHOOK_SECRET', () => env('MP_WEBHOOK_SECRET'), 'clave del webhook de Mercado Pago (valida x-signature)'],
+  ];
+  const missing = checks.filter(([, get]) => !get());
+  if (missing.length) {
+    console.error('\n❌  WOL no puede arrancar: faltan variables de entorno críticas de seguridad.\n');
+    for (const [name, , desc] of missing) console.error(`    • ${name} — ${desc}`);
+    console.error('\n    Cargalas como Secrets (Replit) o en un .env local (git-ignored).');
+    console.error('    ¿Solo querés ver la demo pública, sin credenciales? Arrancá con DEMO_MODE=true.\n');
+    process.exit(1);
+  }
 }
 
 const app = express();

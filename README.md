@@ -133,24 +133,46 @@ la ruta `/wol-hq`** (ver abajo).
 
 ## 💳 Mercado Pago (Checkout Pro)
 
-La integración es **real** vía el SDK oficial `mercadopago`. Si no hay credenciales,
-la app cae automáticamente a un **modo mock** (botón "Simular pago aprobado") para
-poder desarrollar/demostrar sin plata.
+La integración es **real** vía el SDK oficial `mercadopago`. El **pago simulado**
+(sin llamar a la API de MP) existe **solo en modo demo** (`DEMO_MODE=true`).
 
-### Variables de entorno (`.env`)
+### Variables de entorno (`.env` / Secrets)
 
-Copiá `.env.example` a `.env` y completá:
+Copiá `.env.example` a `.env` (o cargalas como **Secrets** en Replit).
 
-| Variable | Qué es | Dónde se obtiene |
+> 🔒 **El modo real NO arranca sin las variables `[CRÍTICA]`.** Con el repo público,
+> ningún fallback débil puede quedar activo: si falta cualquiera, la app **falla al
+> arrancar** con un mensaje claro (nada de valores por defecto adivinables). El
+> **modo demo** (`DEMO_MODE=true`) no necesita ninguna: arranca sin credenciales.
+
+**Requeridas en producción (el server aborta si falta alguna):**
+
+| Variable | Qué es / por qué es crítica | Si falta |
 |---|---|---|
-| `MP_ACCESS_TOKEN` | Access Token de la app | MP Developers → Tus integraciones → Credenciales |
-| `MP_PUBLIC_KEY` | Public Key | ídem |
-| `MP_WEBHOOK_SECRET` | Clave secreta del webhook | MP Developers → Webhooks (al configurar la notificación) |
-| `APP_BASE_URL` | URL pública de la app (para QR, links y webhook) | tu dominio / URL de Replit |
-| `PORT` | Puerto (opcional, default 3000) | — |
+| `SESSION_SECRET` | Firma los tokens de sesión de staff (admin/encargado/bartender/founder). Alias aceptado: `WOL_SECRET`. | Se podrían **falsificar sesiones de staff**. → no arranca |
+| `FOUNDER_LUCAS_PASS` | Contraseña del founder Lucas (`/wol-hq`). | Login de founder **adivinable**. → no arranca |
+| `FOUNDER_WENCES_PASS` | Contraseña del founder Wenceslao (`/wol-hq`). | Login de founder **adivinable**. → no arranca |
+| `MP_ACCESS_TOKEN` | Access Token de Mercado Pago (MP Developers → Credenciales). | El endpoint `/pay-sim` quedaría **abierto** (pedidos gratis). → no arranca |
+| `MP_WEBHOOK_SECRET` | Clave del webhook de MP (valida `x-signature`). | El webhook **no valida la firma**. → no arranca |
 
-> **`.env` está en `.gitignore` y NUNCA se sube al repo.** Las credenciales solo
-> viven en el `.env` local y en los **Secrets** de Replit.
+**Opcionales (no bloquean el arranque):**
+
+| Variable | Qué es | Default |
+|---|---|---|
+| `APP_BASE_URL` | URL pública (para QR, links y webhook). Recomendada en prod. | host del request |
+| `MP_PUBLIC_KEY` | Public Key de MP. Hoy el backend **no la usa**. | — |
+| `PORT` | Puerto del server. | `3000` |
+| `DEMO_MODE` | `true` = demo pública (sin credenciales). | sin setear = modo real |
+
+Generá el `SESSION_SECRET` con:
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+> **`.env` está en `.gitignore` y NUNCA se sube al repo.** Los secretos solo viven
+> en el `.env` local y en los **Secrets** de Replit. Cambiá también las contraseñas
+> iniciales del staff (`admin` / `encargada` / `barra*`) desde el panel de admin
+> apenas deployés — sus valores de bootstrap están en `server/seed.js` (repo público).
 
 ### Flujo de pago
 
@@ -232,15 +254,18 @@ split) en el futuro, sin activarlo ahora. La comisión generada se calcula y se 
 ## ☁️ Deploy en Replit
 
 1. **Subí el proyecto** a Replit (importá el repo o subí los archivos).
-2. En **Tools → Secrets**, cargá estas variables (no como archivo, como Secrets):
-   - `MP_ACCESS_TOKEN`
-   - `MP_PUBLIC_KEY`
-   - `MP_WEBHOOK_SECRET`
+2. En **Tools → Secrets**, cargá las variables (no como archivo, como Secrets). Las
+   `[CRÍTICA]` son obligatorias: **sin ellas el server no arranca** (ver la tabla en
+   "Variables de entorno" arriba).
+   - `SESSION_SECRET` **[CRÍTICA]** → un valor aleatorio de 64 hex (`node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`).
+   - `FOUNDER_LUCAS_PASS` **[CRÍTICA]** · `FOUNDER_WENCES_PASS` **[CRÍTICA]**
+   - `MP_ACCESS_TOKEN` **[CRÍTICA]** · `MP_WEBHOOK_SECRET` **[CRÍTICA]**
    - `APP_BASE_URL` → la **URL pública** de tu Repl (ej. `https://wol.tu-usuario.repl.co`).
      Es clave para que los **QR, links de pedido/regalo y el webhook** apunten al
      dominio público y no a `localhost`.
 3. Apretá **Run**. El `.replit` ya está configurado: instala dependencias y arranca el
-   servidor (`node server/server.js`). La base SQLite (`wol.db`) queda **persistente en
+   servidor (`node server/server.js`). Si falta algún Secret `[CRÍTICA]`, el server te
+   avisa exactamente cuál y no levanta. La base SQLite (`wol.db`) queda **persistente en
    disco** (no se borra entre reinicios) y se auto-carga la primera vez.
 4. Abrí la URL pública del Repl. Verificá que el flujo funcione (carta → pago → QR).
 5. **Webhook de MP**: en MP Developers → Webhooks, configurá la URL

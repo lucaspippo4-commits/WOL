@@ -2,8 +2,14 @@
 import crypto from 'node:crypto';
 import { db } from './db.js';
 
-// Secreto para firmar tokens. En producción: mover a variable de entorno WOL_SECRET.
-const SECRET = process.env.WOL_SECRET || 'wol-dev-secret-cambiar-en-produccion';
+// Secreto para firmar los tokens de sesión de staff (admin/encargado/bartender/founder).
+// Nombre canónico: SESSION_SECRET (WOL_SECRET se acepta como alias por compatibilidad).
+// En modo REAL es OBLIGATORIO: server.js aborta el arranque si no está (ver
+// assertProdSecrets). El fallback aleatorio de acá es SOLO para modo DEMO, donde
+// los tokens son efímeros y no hay cuentas reales — nunca es un valor adivinable.
+const SECRET = process.env.SESSION_SECRET
+  || process.env.WOL_SECRET
+  || crypto.randomBytes(48).toString('hex');
 
 // --- Password hashing (scrypt) ----------------------------------------------
 export function hashPassword(password) {
@@ -71,9 +77,17 @@ export const requireAnyStaff = requireStaff(null);
 // lucas y wenceslao con la contraseña de las variables de entorno. No toca
 // ningún otro dato (productos, otros usuarios staff, pedidos, config).
 export function ensureFounders() {
+  // Las contraseñas vienen SIEMPRE del entorno (sin defaults adivinables en el
+  // repo). En modo real, server.js ya abortó el arranque si faltan; acá se validan
+  // igual como red de seguridad por si se llama desde otro entrypoint.
+  const lucasPass = process.env.FOUNDER_LUCAS_PASS;
+  const wencesPass = process.env.FOUNDER_WENCES_PASS;
+  if (!lucasPass || !wencesPass) {
+    throw new Error('ensureFounders: faltan FOUNDER_LUCAS_PASS / FOUNDER_WENCES_PASS en el entorno.');
+  }
   const FOUNDERS = [
-    { usuario: 'lucas', nombre: 'Lucas', pass: process.env.FOUNDER_LUCAS_PASS || 'dev-lucas' },
-    { usuario: 'wenceslao', nombre: 'Wenceslao', pass: process.env.FOUNDER_WENCES_PASS || 'dev-wences' },
+    { usuario: 'lucas', nombre: 'Lucas', pass: lucasPass },
+    { usuario: 'wenceslao', nombre: 'Wenceslao', pass: wencesPass },
   ];
   // Eliminar el usuario de prueba viejo si quedó de una versión anterior.
   db.prepare("DELETE FROM staff WHERE usuario = 'founder'").run();

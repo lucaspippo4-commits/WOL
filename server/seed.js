@@ -48,20 +48,26 @@ const BARS = [
   ['barra_4', 'Barra 4 (Patio)', 'Patio — derecha del local', 4],
 ];
 
-// ── Staff de demo ───────────────────────────────────────────────────────────
+// ── Staff inicial ───────────────────────────────────────────────────────────
+// Las contraseñas de los founders vienen SIEMPRE del entorno — sin defaults
+// adivinables en el repo. En modo real, server.js aborta el arranque si faltan;
+// acá se validan de nuevo por si `npm run seed` se corre a mano.
+const founderPass = (envName) => {
+  const v = process.env[envName];
+  if (!v) throw new Error(`seed: falta ${envName} en el entorno (contraseña de founder).`);
+  return v;
+};
 const STAFF = [
   // nombre, usuario, pass, rol, barras_asignadas
+  // NOTA: estas son contraseñas INICIALES de bootstrap del staff del boliche.
+  // Cambialas desde el panel de admin apenas deployés (el repo es público).
   ['Admin Hush', 'admin', 'admin123', 'admin', []],
   ['Encargada Noche', 'encargada', 'encargada123', 'encargado', []],
   ['Bautista (Barras 1 y 2)', 'barra12', 'barra123', 'bartender', ['barra_1', 'barra_2']],
   ['Camila (Barras 3 y 4)', 'barra34', 'barra123', 'bartender', ['barra_3', 'barra_4']],
   // Founders reales (equipo WOL) — acceso exclusivo por /wol-hq.
-  // Las contraseñas REALES NO van en el código: se leen de variables de entorno
-  // (FOUNDER_LUCAS_PASS / FOUNDER_WENCES_PASS), que se cargan desde .env (local, ignorado
-  // por git) o desde los Secrets de Replit (producción). El valor por defecto de acá es
-  // solo un placeholder débil para que el desarrollo local funcione si no se setea la variable.
-  ['Lucas', 'lucas', process.env.FOUNDER_LUCAS_PASS || 'dev-lucas', 'founder', []],
-  ['Wenceslao', 'wenceslao', process.env.FOUNDER_WENCES_PASS || 'dev-wences', 'founder', []],
+  ['Lucas', 'lucas', founderPass('FOUNDER_LUCAS_PASS'), 'founder', []],
+  ['Wenceslao', 'wenceslao', founderPass('FOUNDER_WENCES_PASS'), 'founder', []],
 ];
 
 function run() {
