@@ -1,6 +1,8 @@
-// db.js — Capa de base de datos sobre node:sqlite (SQLite nativo de Node >=22.5)
-// No requiere compilar módulos nativos: ideal para levantar el MVP en cualquier máquina.
-import { DatabaseSync } from 'node:sqlite';
+// db.js — Capa de base de datos sobre better-sqlite3 (API síncrona).
+// Se usa better-sqlite3 (no el node:sqlite nativo) para NO depender de Node >=22.5:
+// funciona en Node 20+ (incluido el runtime del deployment de Replit). Trae binarios
+// precompilados (prebuilds), así que `npm install` no compila nada en el server.
+import Database from 'better-sqlite3';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -17,9 +19,10 @@ export const DEMO = /^(1|true|yes)$/i.test(process.env.DEMO_MODE || '');
 const DB_PATH = DEMO ? ':memory:' : path.join(__dirname, '..', 'wol.db');
 const BACKUP_DIR = path.join(__dirname, '..', 'backups');
 
-export const db = new DatabaseSync(DB_PATH);
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
+export const db = new Database(DB_PATH);
+// WAL solo para la base en disco (modo real); en :memory: (demo) no aplica.
+if (!DEMO) db.pragma('journal_mode = WAL');
+db.pragma('foreign_keys = ON');
 
 // --- Esquema -----------------------------------------------------------------
 export function initSchema() {
@@ -170,7 +173,7 @@ export function initSchema() {
 
   // Migraciones suaves (para bases ya existentes, ej. en Replit): agregan columnas
   // nuevas sin recrear la tabla. SQLite no tiene "ADD COLUMN IF NOT EXISTS".
-  const orderCols = db.prepare('PRAGMA table_info(orders)').all().map(c => c.name);
+  const orderCols = db.pragma('table_info(orders)').map(c => c.name);
   if (!orderCols.includes('nota_admin')) {
     db.exec("ALTER TABLE orders ADD COLUMN nota_admin TEXT DEFAULT ''");
   }

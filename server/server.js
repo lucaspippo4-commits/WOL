@@ -133,7 +133,9 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Error interno', detalle: err.message });
 });
 
-app.listen(PORT, () => {
+// Escuchar en 0.0.0.0 (todas las interfaces) para que el deployment pueda enrutar
+// el tráfico externo al puerto (Replit publica PORT → 80). Usa process.env.PORT.
+app.listen(PORT, '0.0.0.0', () => {
   if (DEMO) {
     console.log(`\n🍸  WOL — PUBLIC DEMO running at  http://localhost:${PORT}`);
     console.log(`    In-memory database · simulated payments · no logins · no founders panel\n`);
