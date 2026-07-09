@@ -8,6 +8,55 @@ un panel de administración.
 
 ---
 
+## 🎬 Demo mode (showcase público, en inglés)
+
+El **mismo repo** puede correr en dos modos, según una sola variable de entorno:
+
+| Modo | Cómo se activa | Qué es |
+|---|---|---|
+| **Producción (real)** | *(sin variable)* | La app real de Hush Club: español, logins, Mercado Pago real, panel de founders, base persistente `wol.db`. **No cambia en nada.** |
+| **Demo pública** | `DEMO_MODE=true` | Showcase auto-explicativo en inglés: landing de presentación, las 3 vistas sin login, pago simulado, datos de una noche precargados. Pensada para compartir por link (p. ej. Y Combinator). |
+
+### Correr la demo en local
+
+```bash
+DEMO_MODE=true npm start        # http://localhost:3000  → landing de la demo
+```
+
+En **Windows PowerShell**: `$env:DEMO_MODE='true'; npm start`.
+
+### Qué hace el modo demo (y qué NO)
+
+- **Base de datos en memoria** (`:memory:`): efímera y físicamente aislada de `wol.db`
+  (la base de producción). Se puede resetear desde la landing ("Reset demo data") y se
+  reinicia sola en cada arranque del server.
+- **Sin credenciales**: el único Secret necesario para el deployment de demo es `DEMO_MODE`.
+  **No** requiere `MP_ACCESS_TOKEN` ni ninguna clave. Los pagos son siempre simulados —
+  nunca se llama a la API de Mercado Pago, aunque quedara un token seteado por error.
+- **Sin logins**: las vistas Customer / Bartender / Admin entran directo. El server
+  autentica las vistas de staff internamente (usuario `demo`, contraseña aleatoria que
+  nunca se muestra).
+- **Sin founders**: en demo, el rol `founder` no existe en la base, la ruta `/api/founder/*`
+  no se monta, y `/wol-hq` cae a la landing (404 del panel real). La comisión de WOL no se
+  calcula ni se muestra en ninguna vista.
+- **Frontend separado**: la demo se sirve desde `public/demo/` (inglés). El frontend real
+  (`public/index.html`, `public/js/`) no se sirve en modo demo.
+
+> ✏️ **Antes de publicar:** en `public/demo/js/views/landing.js` editá la constante
+> `GITHUB_URL` (link "View source") y, si querés, `BUILT_BY`.
+
+### Publicar la demo (Replit)
+
+1. `git push` a GitHub (este repo).
+2. Crear un **segundo Repl** importando el mismo repo.
+3. En **Secrets**, agregar únicamente `DEMO_MODE = true`.
+4. **Run** → la URL pública abre la landing de la demo. Listo, sin más configuración.
+
+El deployment real (Hush Club) sigue igual: su Repl **no** tiene `DEMO_MODE` y usa sus
+Secrets de Mercado Pago como siempre.
+
+---
+
 ## 🚀 Cómo correrlo en local (un solo comando)
 
 Requisitos: **Node.js 22.5+** (usa el SQLite nativo de Node, no compila nada).

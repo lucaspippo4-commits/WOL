@@ -187,6 +187,9 @@ async function reconcileOrder(o) {
 
 // ── Pago simulado (solo en modo mock, sin credenciales de MP) ────────────────
 router.post('/orders/:token/pay-sim', (req, res) => {
+  // Con Mercado Pago real activo este endpoint NO existe: si no, cualquiera
+  // podría marcar un pedido como pagado sin pagar.
+  if (mpEnabled()) return res.status(404).json({ error: 'No disponible' });
   const o = db.prepare('SELECT * FROM orders WHERE qr_token = ? OR codigo_retiro = ?')
     .get(req.params.token, req.params.token);
   if (!o) return res.status(404).json({ error: 'Pedido no encontrado' });

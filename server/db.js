@@ -6,7 +6,15 @@ import path from 'node:path';
 import fs from 'node:fs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DB_PATH = path.join(__dirname, '..', 'wol.db');
+
+// --- Modo demo (showcase público) --------------------------------------------
+// DEMO_MODE=true convierte la app en la demo pública (inglés, sin logins, pagos
+// simulados). La base pasa a ser EN MEMORIA: efímera, aislada, y físicamente
+// incapaz de leer o escribir wol.db (la base de producción). Sin la variable,
+// todo funciona exactamente igual que siempre.
+export const DEMO = /^(1|true|yes)$/i.test(process.env.DEMO_MODE || '');
+
+const DB_PATH = DEMO ? ':memory:' : path.join(__dirname, '..', 'wol.db');
 const BACKUP_DIR = path.join(__dirname, '..', 'backups');
 
 export const db = new DatabaseSync(DB_PATH);
@@ -172,6 +180,7 @@ export function initSchema() {
 // VACUUM INTO crea una copia íntegra aunque haya escrituras (WAL). Se conservan
 // las últimas N copias en /backups. Protege ante borrados/corrupción accidental.
 export function backupDatabase(keep = 12) {
+  if (DEMO) return null; // la base demo es efímera: no se respalda a disco
   try {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
     const ts = new Date().toISOString().replace(/[:.]/g, '-');

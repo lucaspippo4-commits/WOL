@@ -11,12 +11,14 @@
 
 import crypto from 'node:crypto';
 import { MercadoPagoConfig, Preference, Payment } from 'mercadopago';
-import { getConfig } from './db.js';
+import { getConfig, DEMO } from './db.js';
 import { randomToken } from './util.js';
 
 // Lectura perezosa del entorno: funciona sin importar cuándo se cargue el .env
 // (local) o los Secrets (Replit), evitando problemas de orden de import en ESM.
-const accessToken = () => process.env.MP_ACCESS_TOKEN || '';
+// En DEMO_MODE los pagos son SIEMPRE simulados: nunca se llama a la API de
+// Mercado Pago, aunque alguien deje un access token configurado por error.
+const accessToken = () => (DEMO ? '' : process.env.MP_ACCESS_TOKEN || '');
 const webhookSecret = () => process.env.MP_WEBHOOK_SECRET || '';
 export const mpEnabled = () => !!accessToken();
 

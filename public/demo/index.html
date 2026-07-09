@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0a0d" />
+  <meta name="description" content="WOL — the ordering layer for nightclubs. Public product demo." />
+  <title>WOL — Skip the bar line · Product demo</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/demo/css/demo.css" />
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- ESM served locally (no CDN, no build step) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "preact": "/vendor/preact/preact.module.js",
+      "preact/hooks": "/vendor/preact-hooks/hooks.module.js",
+      "htm": "/vendor/htm/htm.module.js"
+    }
+  }
+  </script>
+
+  <script type="module" src="/demo/js/app.js"></script>
+</body>
+</html>

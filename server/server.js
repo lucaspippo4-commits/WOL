@@ -6,7 +6,7 @@ try { process.loadEnvFile(); } catch { /* sin .env (ej. Replit con Secrets) */ }
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { db, initSchema, backupDatabase } from './db.js';
+import { db, DEMO, initSchema, backupDatabase } from './db.js';
 import { ensureFounders } from './auth.js';
 import publicRoutes from './routes/public.js';
 import orderRoutes from './routes/orders.js';
@@ -25,28 +25,47 @@ process.on('uncaughtException', (e) => console.error('uncaughtException:', e?.me
 
 initSchema();
 
-// Auto-seed la primera vez (útil en Replit: arranca con un solo "Run").
-// La base SQLite (wol.db) es persistente en disco: no se re-seedea en cada reinicio.
-const hayProductos = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
-if (!hayProductos) {
-  console.log('\n⚙️  Base vacía: cargando datos iniciales (seed)…');
-  await import('./seed.js');
-}
+// ── MODO DEMO (DEMO_MODE=true) ────────────────────────────────────────────────
+// Base EN MEMORIA (jamás toca wol.db), datos simulados en inglés, sin logins,
+// pagos siempre simulados y SIN panel de founders. Sin la variable, este bloque
+// no existe y todo corre exactamente como siempre.
+let demoRouter = null, demoAuthInject = null;
+if (DEMO) {
+  const seed = await import('./demo-seed.js');
+  seed.seedDemo();
+  const demo = await import('./routes/demo.js');
+  demo.initPricingStory();
+  demoRouter = demo.default;
+  demoAuthInject = demo.demoAuthInject;
+} else {
+  // Auto-seed la primera vez (útil en Replit: arranca con un solo "Run").
+  // La base SQLite (wol.db) es persistente en disco: no se re-seedea en cada reinicio.
+  const hayProductos = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
+  if (!hayProductos) {
+    console.log('\n⚙️  Base vacía: cargando datos iniciales (seed)…');
+    await import('./seed.js');
+  }
 
-// Reconciliar founders en CADA arranque (idempotente): elimina el viejo `founder`
-// de prueba y asegura lucas/wenceslao con la contraseña de las variables de entorno,
-// también sobre bases ya existentes. No toca ningún otro dato.
-ensureFounders();
+  // Reconciliar founders en CADA arranque (idempotente): elimina el viejo `founder`
+  // de prueba y asegura lucas/wenceslao con la contraseña de las variables de entorno,
+  // también sobre bases ya existentes. No toca ningún otro dato.
+  ensureFounders();
+}
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
 // --- API ---------------------------------------------------------------------
+if (DEMO) {
+  app.use('/api', demoRouter);                          // /demo/* + occupancy con historia
+  app.use(['/api/staff', '/api/admin'], demoAuthInject); // vistas de staff sin login
+}
 app.use('/api', publicRoutes);
 app.use('/api', orderRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/founder', founderRoutes);
+// El panel de founders NO existe en la demo: ni la ruta, ni el rol en la base.
+if (!DEMO) app.use('/api/founder', founderRoutes);
 
 // --- Vendor (librerías ESM servidas localmente, sin CDN ni build) ------------
 const vendor = (rel) => express.static(path.join(ROOT, 'node_modules', rel));
@@ -56,12 +75,26 @@ app.use('/vendor/htm', vendor('htm/dist'));
 app.use('/vendor/jsqr', vendor('jsqr/dist'));
 
 // --- Estáticos del frontend --------------------------------------------------
-app.use(express.static(path.join(ROOT, 'public')));
+// En demo, el frontend REAL (público /js y /index.html) no se sirve: la demo tiene
+// su propia app en /demo (en inglés, sin login, sin rastro del panel de founders).
+if (DEMO) {
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/js/') || req.path === '/index.html') return res.status(404).end();
+    next();
+  });
+  // index:false → `/` NO devuelve el index.html real; cae al fallback SPA de la
+  // demo (public/demo/index.html). Los estáticos compartidos (css, assets,
+  // productos, vendor, /demo/*) siguen sirviéndose normal.
+  app.use(express.static(path.join(ROOT, 'public'), { index: false }));
+} else {
+  app.use(express.static(path.join(ROOT, 'public')));
+}
 
-// --- Fallback SPA: cualquier ruta no-API devuelve index.html -----------------
+// --- Fallback SPA: cualquier ruta no-API devuelve el index correspondiente ---
+const INDEX = DEMO ? path.join(ROOT, 'public', 'demo', 'index.html') : path.join(ROOT, 'public', 'index.html');
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(ROOT, 'public', 'index.html'));
+  res.sendFile(INDEX);
 });
 
 app.use((err, req, res, next) => {
@@ -70,6 +103,11 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
+  if (DEMO) {
+    console.log(`\n🍸  WOL — PUBLIC DEMO running at  http://localhost:${PORT}`);
+    console.log(`    In-memory database · simulated payments · no logins · no founders panel\n`);
+    return; // sin respaldos: la base demo es efímera a propósito
+  }
   console.log(`\n🍸  WOL corriendo en  http://localhost:${PORT}`);
   console.log(`    Consumidor → /        Bartender → /barra        Admin → /admin\n`);
   // Respaldo automático del archivo de la base: al arrancar y cada 30 minutos.
